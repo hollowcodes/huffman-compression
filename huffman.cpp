@@ -172,7 +172,7 @@ std::map<int, int> getCharacterFrequencies(char *textPtr, unsigned int totalChar
 
 int main() {
     
-    char text[153] = "aaaacccvvbb";
+    char text[153] = "hey mo namo tbone la arachna discotheka moneka la bibliotheka estas muchas grandos peromonteca";
     std::map<int, int> frequencyTable = getCharacterFrequencies(text, length(text));
 
     if(debug) {
