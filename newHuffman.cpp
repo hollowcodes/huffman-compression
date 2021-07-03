@@ -12,104 +12,70 @@
 #define debug false
 
 
-//struct Node {
-//    std::vector<int> asciiChars;
-//    int frequency;
-//    int side;
-//
-//    std::shared_ptr<Node> parent;
-//    std::shared_ptr<Node> left;
-//    std::shared_ptr<Node> right;
-//
-//    void toString() {
-//        std::cout << "\nnode:\n" << "ascii-char: ";
-//        for (int asciiChar : asciiChars) {
-//            std::cout << asciiChar << " ";
-//        }
-//        std::cout << "| frequency: " << frequency << " | side: " << side << " | child-left: " << left << " | child-right: " << right << std::endl << "----------" << std::endl;
-//    }
-//
-//    bool isLeaf() {
-//        if (left == 0 && right == 0) {
-//            return true;
-//        }
-//        return false;
-//    }
-//
-//    void setLeftChild(Node &childNode) {
-//        left = std::make_shared<Node>();
-//        left->frequency = childNode.frequency;
-//        left->side = 1;
-//        left->left = childNode.left;
-//        left->right = childNode.right;
-//    }
-//
-//    void setRightChild(Node &childNode) {
-//        right = std::make_shared<Node>();
-//        right->frequency = childNode.frequency;
-//        right->side = 0;
-//        right->left = childNode.left;
-//        right->right = childNode.right;
-//    }
-//
-//    void setParent(Node &parentNode) {
-//        parent = std::make_shared<Node>();
-//        parent->frequency = parentNode.frequency;
-//        parent->side = -1;
-//        parent->left = parentNode.left;
-//        parent->right = parentNode.right;
-//    }
-//};
+void traversal(std::shared_ptr<Node> &node, bool direction, std::vector<bool> currentCode, std::map<int, std::vector<bool>>& codeTable) {
 
-
-
-void traversal(std::shared_ptr<Node>& node, bool direction, std::vector<bool> currentCode, std::map<int, std::vector<bool>> &codeTable) {
-
-    //for (auto &x : codeTable) {
-    //    std::cout << x.first << " -> ";
-    //    for (bool b : x.second) {
-    //        std::cout << b << "-";
-    //    }
-    //    std::cout << "\n----------------\n";
-    //}
-
-    if (node->finishedLeft && node->finishedRight) {
-        if (node->parent == 0) {
-            return;
+    if (debug) {
+        std::cout << "\nm-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-\n" << std::endl;
+        for (auto &x : codeTable) {
+            std::cout << x.first << " -> ";
+            for (bool b : x.second) {
+                std::cout << b << "-";
+            }
+            std::cout << "\n----------------\n";
         }
-        traversal(node->parent, 1, currentCode, codeTable);
     }
 
-    if (direction == 1) {
+
+    if (node->finishedLeft && node->finishedRight) {
+        currentCode.pop_back();
+
+        //node->toString();
+        //std::cout << node->parent->finishedLeft << " " << node->parent->finishedRight << std::endl;
+
+        if (node->side == 1) {
+            node->parent->finishedLeft = true;
+
+            traversal(node->parent, 0, currentCode, codeTable);
+        }
+        else if (node->side == 0) {
+            node->parent->finishedRight = true;
+
+            if (node->parent->side == -1) {
+                print("lul");
+                return;
+            }
+
+            traversal(node->parent, 1, currentCode, codeTable);
+        }
+    }
+
+    else if (direction == 1) {
         currentCode.push_back(1);
 
-        if (!(node->left->isLeaf())) {
+        if (!node->left->isLeaf()) {
             traversal(node->left, 1, currentCode, codeTable);
         }
         else {
-            codeTable[node->left->asciiChars[0]] = currentCode;
-            node->finishedLeft = true;
+            codeTable[(node->left->asciiChars)[0]] = currentCode;
             currentCode.pop_back();
+            node->finishedLeft = true;
             traversal(node, 0, currentCode, codeTable);
         }
     }
     else if (direction == 0) {
         currentCode.push_back(0);
 
-        if (!(node->right->isLeaf())) {
+        if (!node->right->isLeaf()) {
             traversal(node->right, 1, currentCode, codeTable);
         }
         else {
-            codeTable[node->right->asciiChars[0]] = currentCode;
-            node->finishedRight = true;
+            codeTable[(node->right->asciiChars)[0]] = currentCode;
             currentCode.pop_back();
+            node->finishedRight = true;
             traversal(node, 1, currentCode, codeTable);
         }
     }
-
 }
-
-
 
 
 
@@ -123,26 +89,11 @@ Node createNodeFamily(Node &child1, Node &child2) {
 
     parent.side = -1;
 
-    child1.setParent(parent);
-    child2.setParent(parent);
-    
     parent.setLeftChild(child1);
     parent.setRightChild(child2);
 
-
-
-
-    //parent.left = std::make_shared<Node>();
-    //parent.left->frequency = child1.frequency;
-    //parent.left->side = 0;
-    //parent.left->left = child1.left;
-    //parent.left->right = child1.right;
-//
-    //parent.right = std::make_shared<Node>();
-    //parent.right->frequency = child2.frequency;
-    //parent.right->side = 1;
-    //parent.right->left = child2.left;
-    //parent.right->right = child2.right;
+    parent.left->setParent(parent);
+    parent.right->setParent(parent);
 
     return parent;
 }
@@ -180,47 +131,32 @@ void sortNodesByFrequency(std::vector<Node>& nodes, int leftNodeIdx, int rightNo
 
 Node buildHuffmanTree(std::vector<Node> &nodes) {
     int idx = 0;
-    while (nodes.size() > 1) {
+    while (true) {
 
-        if (debug) {
-            for (Node n : nodes) {
-                std::cout << n.frequency << " ";
-            }
-            std::cout << "\nnnnnnnn\n";
+        Node leftChild = nodes[0];
+        Node rightChild = nodes[1];
+
+        Node parent = createNodeFamily(leftChild, rightChild);
+        nodes.erase(nodes.begin());
+        nodes.erase(nodes.begin());
+
+        if (nodes.size() == 0) {
+            return parent;
         }
 
-        if (idx == nodes.size() - 1 && nodes.size() > 1) {
-            nodes.insert(nodes.begin(), nodes[idx]);
-            nodes.erase(nodes.end());
-            idx = 0;
-            continue;
-        }
-        else {
-            Node leftChild = nodes[idx];
-            Node rightChild = nodes[idx+1];
-
-            if (leftChild.frequency > rightChild.frequency && leftChild.frequency > nodes[idx+2].frequency) { // maybe needed? dunno...: idx + 2 < nodes.size() && 
-                idx++;
-                continue;
+        for (size_t i=0; i<nodes.size(); i++) {
+            if (nodes[i].frequency > parent.frequency) {
+                if (true) {
+                    nodes.insert(nodes.begin() + i, parent);
+                    break;
+                }
             }
-            else {
-                Node parent = createNodeFamily(leftChild, rightChild);
-                nodes.erase(nodes.begin()+idx);
-                nodes.at(idx) = parent;
+            if (i == nodes.size() - 1) {
+                nodes.insert(nodes.end(), parent);
+                break;
             }
-            
         }
-        
-        if (debug) {
-            for (Node n : nodes) {
-                std::cout << n.frequency << " ";
-            }
-            std::cout << "\nnnnnnnn\n";
-        }
-        
     }
-
-    return nodes[0];
 }
 
 
@@ -246,7 +182,7 @@ std::map<int, int> getCharacterFrequencies(char *fileContent, unsigned int conte
 
 int main() {
     
-    char fileContent[200] = "milch macht munter";
+    char fileContent[200] = "yoyoyo what is up peoplowwwwls huh pewpew"; // mississippi milchzjtm aggghhhhhhhhhmmmmmmmrrrrtttt
     std::map<int, int> frequencyTable = getCharacterFrequencies(fileContent, length(fileContent));
 
     if(debug) {
@@ -268,39 +204,65 @@ int main() {
 
         leaf.frequency = entry.second;
         leaf.side = -1;
-        leaf.parent = leaf.left = leaf.right = 0;
+        leaf.parent = leaf.left = leaf.right = NULL;
 
-        if (debug) {
-            leaf.toString();
-        }
+        // leaf.toString();
 
         nodes.push_back(leaf);
     }
 
+
     sortNodesByFrequency(nodes, 0, nodes.size() - 1);
+    print("\nsorted\n");
+    //for (Node n : nodes) {
+    //    std::cout << n.frequency << " ";
+    //}
+    //print("\n");
+
+    //std::vector<Node>::iterator minIter1 = std::max_element( nodes.begin(), nodes.end(), []( const Node &a, const Node &b )
+    //                         {
+    //                             return a.frequency > b.frequency;
+    //                         } );
+//
+    //std::cout << "min element at: " << std::distance(std::begin(nodes), minIter1);
 
     Node root = buildHuffmanTree(nodes);
+    print("\nbuilt tree\n");
+
+    //root.toString();
     //root.left->toString();
     //root.left->left->toString();
+    //root.left->left->parent->toString();
+
     //root.left->right->toString();
+    //root.left->right->left->toString();
+    //root.left->right->right->toString();
+    //print("\n");
     //root.right->toString();
     //root.right->left->toString();
     //root.right->right->toString();
+    //root.right->right->left->toString();
+    //root.right->right->right->toString();
 
+//
+    //root.right->left->toString();
+    //root.right->right->toString();
+////
     std::shared_ptr<Node> node = std::make_shared<Node>();
+    node->asciiChars = root.asciiChars;
     node->frequency = root.frequency;
     node->side = -1;
-    node->parent = 0;
+    node->parent = NULL;
     node->left = root.left;
     node->right = root.right;
-
+////
     std::vector<bool> currentCode;
     traversal(node, 1, currentCode, huffmanCodes);
-
+////
     print("\n\nend\n\n");
-
+////
     for (auto &x : huffmanCodes) {
-        std::cout << x.first << " -> ";
+        std::cout << static_cast<char>(x.first) << " -> ";
         for (bool b : x.second) {
             std::cout << b << "-";
         }
