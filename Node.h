@@ -17,13 +17,13 @@ class Node {
         void toString() {
             std::cout << "\nnode:\n" << "ascii-char: ";
             for (int asciiChar : asciiChars) {
-                std::cout << asciiChar << " ";
+                std::cout << static_cast<char>(asciiChar) << " ";
             }
-            std::cout << "| frequency: " << frequency << " | side: " << side << " | child-left: " << left << " | child-right: " << right << std::endl << "----------" << std::endl;
+            std::cout << "| frequency: " << frequency << " | side: " << side << " | parent: " << parent << " | child-left: " << left << " | child-right: " << right << std::endl << "----------" << std::endl;
         }
 
         bool isLeaf() {
-            if (left == 0 && right == 0) {
+            if (left == NULL && right == NULL) {
                 return true;
             }
             return false;
@@ -36,6 +36,18 @@ class Node {
             left->side = 1;
             left->left = childNode.left;
             left->right = childNode.right;
+            left->parent = childNode.parent;
+
+            std::cout << left->left << std::endl;
+            
+            if (left->left != 0) {
+                left->left->parent = left;
+                left->right->parent = left;
+            }
+            //    left->left->parent = left;
+            //    left->right->parent = left;
+            //}
+            //catch (const std::exception&) { ; }
         }
 
         void setRightChild(Node &childNode) {
@@ -45,13 +57,27 @@ class Node {
             right->side = 0;
             right->left = childNode.left;
             right->right = childNode.right;
+            right->parent = childNode.parent;
+
+            if (right->left != 0) {
+                right->left->parent = right;
+                right->right->parent = right;
+            }
+            //try {
+            //    right->left->parent = right;
+            //    right->right->parent = right;
+            //}
+            //catch (const std::exception&) { ; }
+
         }
 
         void setParent(Node &parentNode) {
             parent = std::make_shared<Node>();
+            parent->asciiChars = parentNode.asciiChars;
             parent->frequency = parentNode.frequency;
-            parent->side = -1;
+            parent->side = parentNode.side;
             parent->left = parentNode.left;
             parent->right = parentNode.right;
+            parent->parent = NULL;
         }
 };
