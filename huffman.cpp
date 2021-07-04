@@ -183,6 +183,7 @@ Node buildHuffmanTree(std::vector<Node> &nodes) {
 }
 
 
+// count the frequency of each character and save them to a dictionary
 std::map<int, int> getCharacterFrequencies(char *fileContent, unsigned int contentSize) {
     std::map<int, int> frequencyTable;
 
@@ -202,6 +203,8 @@ std::map<int, int> getCharacterFrequencies(char *fileContent, unsigned int conte
     return frequencyTable;
 }
 
+
+// encode a set of characters to huffman their representations
 void encode() {
     char fileContent[200] = "mississippiuwu"; // mississippi milchzjtm aggghhhhhhhhhmmmmmmmrrrrtttt yoyoyo what is up peoplowwwwls huh pewpew
 
