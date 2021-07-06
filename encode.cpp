@@ -206,11 +206,12 @@ std::map<int, int> getCharacterFrequencies(char *fileContent, unsigned int conte
 
 
 // encode a set of characters to huffman their representations
-void encode(char* fileContent) {
+void encode(char* fileContent, unsigned int contentSize) {
     //char fileContent[200] = "milchzjtm"; // mississippi milchzjtm aggghhhhhhhhhmmmmmmmrrrrtttt yoyoyo what is up peoplowwwwls huh pewpew
-
+    //std::cout << sizeof(fileContent) / sizeof(*fileContent) << " " << sizeof(fileContent) << " " << sizeof(*fileContent) << std::endl;
+	 
     // get letter frequency dictionary (keys: assci-value of char, value: frequency)
-    std::map<int, int> frequencyTable = getCharacterFrequencies(fileContent, len(fileContent));
+    std::map<int, int> frequencyTable = getCharacterFrequencies(fileContent, contentSize);
 
     // initialize huffman code dictionary (keys: assci-value of char, value: list of 0-1 huffman representation)
     std::map<int, std::vector<bool>> huffmanCodes;

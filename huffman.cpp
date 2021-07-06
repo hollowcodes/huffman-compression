@@ -12,6 +12,8 @@
 #include "decode.cpp"
 
 
+#define len(x) sizeof(x) / sizeof(*x)
+
 int main() {
     std::string fileName = "test.txt";
     
@@ -20,12 +22,10 @@ int main() {
         std::ifstream ifs(fileName);
         std::string fileContent((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()) );
 
-        std::cout << fileContent.size() * 8 << std::endl;
-
-        char fileContentBuffer[fileContent.size() * 8];
+        char fileContentBuffer[fileContent.size()];
         strcpy(fileContentBuffer, fileContent.c_str());
-
-        encode(fileContentBuffer);
+	
+        encode(fileContentBuffer, len(fileContentBuffer));
 
     }
     else if (mode == 0) {
