@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <fstream>
 #include <string>
+#include <bitset>
 
 #include "Node.h"
 
@@ -205,6 +206,34 @@ std::map<int, int> getCharacterFrequencies(char *fileContent, unsigned int conte
 }
 
 
+// splits the bit (/bool) stream into packs of 8 (= 1 byte), pads with zeros and stores them as chars
+std::string bitStreamToChars(std::vector<bool>& bitStream) {
+    std::string charSequence = "";
+    std::bitset<8> currentByte;
+    int c = 0;
+    int idx = 0;
+
+    for (int i=0; i<bitStream.size(); i++) {
+        bool currentBit = bitStream[i];
+
+        if (currentBit) {
+            currentByte |= 1 << 7-c;
+        }
+
+        c++;
+
+        if (c == 8 || i == bitStream.size() - 1) {
+            charSequence += static_cast<unsigned char>(currentByte.to_ulong());
+            currentByte = 0x0;
+            c = 0;
+            idx += 1;
+        }
+    }
+
+    return charSequence;
+}
+
+
 // encode a set of characters to huffman their representations
 void encode(char* fileContent, unsigned int contentSize) {
     //char fileContent[200] = "milchzjtm"; // mississippi milchzjtm aggghhhhhhhhhmmmmmmmrrrrtttt yoyoyo what is up peoplowwwwls huh pewpew
@@ -268,5 +297,18 @@ void encode(char* fileContent, unsigned int contentSize) {
             std::cout << "\n----------------\n";
         }
     }
+
+    std::vector<bool> bitStream;
+    for (int i=0; i<contentSize; i++) {
+        std::vector<bool> currentCode = huffmanCodes[fileContent[i]];
+        bitStream.insert(bitStream.end(), currentCode.begin(), currentCode.end());
+    }
+    std::string charSequence = bitStreamToChars(bitStream);
+    infoPrint("encoded entire file content");
+
+    std::ofstream ofs("test.huf");
+    ofs << charSequence;
+    ofs.close();
+    infoPrint("saved encoded file");
 
 }

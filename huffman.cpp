@@ -11,6 +11,9 @@
 #include "encode.cpp"
 #include "decode.cpp"
 
+#define ENCODE_MODE 1
+#define DECODE_MODE 0
+
 
 #define len(x) sizeof(x) / sizeof(*x)
 
@@ -18,7 +21,7 @@ int main() {
     std::string fileName = "test.txt";
     
     bool mode = 1;
-    if (mode == 1) {
+    if (mode == ENCODE_MODE) {
         std::ifstream ifs(fileName);
         std::string fileContent((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()) );
 
@@ -28,7 +31,7 @@ int main() {
         encode(fileContentBuffer, len(fileContentBuffer));
 
     }
-    else if (mode == 0) {
+    else if (mode == DECODE_MODE) {
         // TODO decode
     }
 }
