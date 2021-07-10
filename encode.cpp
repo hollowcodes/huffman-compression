@@ -235,79 +235,29 @@ std::string bitStreamToChars(std::vector<bool>& bitStream) {
 }
 
 
-/*std::string createHeaderTable(std::map<int, std::vector<bool>> huffmanCodeTable) {
+std::string createHeaderTable(std::map<int, std::vector<bool>>& huffmanCodeTable) {
     std::string header = "";
-    std::bitset<8> currentByte;
-
     for (auto &x : huffmanCodeTable) {
-        char currentChar = static_cast<char>(x.first);
-        
-        for (size_t i=0; i<x.second.size(); i++) {
-            if (x.second[i]) {
-                currentByte |= 1 << 7-i;
-            }
-        }
-
-        std::cout << currentChar << " " << currentByte << std::endl;
-
-        header += currentChar; header += ","; header += x.second.size(); header += ",";
-        header += static_cast<unsigned char>(currentByte.to_ulong()); header += "<#>";
-
-        currentByte = 0x0;
+        header += std::to_string(x.second.size()) + static_cast<char>(x.first);
     }
-    std::cout << "HEADER " << header << std::endl;
 
-    return header;
+    return header + "##";
 }
 
 
-std::vector<std::vector<bool>> makeCanonical(std::vector<int>& codeLengths) {
-    std::vector<std::vector<bool>> newHuffmanCodes;
-
-    unsigned int priorCodeLength = codeLengths[0];
-    std::vector<bool> priorCanonicalCode(priorCodeLength);
-    newHuffmanCodes.push_back(priorCanonicalCode);
-
-    for (size_t i=1; i<codeLengths.size(); i++) {
-        
-        bool carry = 0;
-        unsigned int c = 0;
-        while (true) {
-
-            bool currentBit = priorCanonicalCode[priorCanonicalCode.size() - c - 1];
-            bool resultBit = currentBit ^ 1;
-
-            priorCanonicalCode[priorCanonicalCode.size() - c - 1] = resultBit;
-            if (currentBit != 1) {
-                newHuffmanCodes.push_back(priorCanonicalCode);
-                for (int j=0; j<priorCanonicalCode.size(); j++) {
-                    std::cout << priorCanonicalCode[j] << " ";
-                }std::cout << "\n";
-                break;
-            }
-            else {
-                c++;
-            }
-        }
-    }
-
-    for (int i=0; i<newHuffmanCodes.size(); i++) {
-        for (int j=0; j<newHuffmanCodes[i].size(); j++) {
-            std::cout << newHuffmanCodes[i][j] << " ";
-        }
-        std::cout << "\n-------------\n";
-    }
-
-    return newHuffmanCodes;
-}*/
-
 // std::vector<std::vector<bool>>
 std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCodes) {
+    /* 
+        algorithm:
+        1. sort the huffman codes according to length
+        2. create the first canonical code by taking as many zeros as the length of the smalles code
+        3. to create the next code, add 1 to the last code and padd it with zeros so that it matches the original huffman code length
+    */
+
     std::map<int, std::vector<bool>> newHuffmanCodes;
 
     unsigned int previousCodeLength = huffmanCodes[0].second.size();
     newHuffmanCodes[huffmanCodes[0].first] = std::vector<bool>(2, 0);
-    //huffmanCodes[0] = std::pair<int, std::vector<bool>>(huffmanCodes[0].first, std::vector<bool>(2, 0));
 
     // sadly the bitLength can't be dynamical (let's hope there is no code with lengh over 64)
     const unsigned int bitLength = 64;
@@ -316,7 +266,7 @@ std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCod
     for (size_t i=1; i<huffmanCodes.size(); i++) {
         unsigned int currentCodeLength = huffmanCodes[i].second.size();
         
-        // add 1 to last code and shift it in order to keep its length
+        // add 1 to last code and shift/padd it in order to keep its length
         std::bitset<64> currentCanonicalCode(previousCanonicalCode.to_ulong() + 1);
         currentCanonicalCode <<= (currentCodeLength - previousCodeLength);
 
@@ -330,7 +280,6 @@ std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCod
         }
 
         newHuffmanCodes[huffmanCodes[i].first] = currentCanonicalCodeVector;
-        //huffmanCodes[i] = std::pair<int, std::vector<bool>>(huffmanCodes[i].first, currentCanonicalCodeVector);
 
         previousCodeLength = currentCodeLength;
         previousCanonicalCode = currentCanonicalCode;
@@ -342,9 +291,6 @@ std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCod
 
 // encode a set of characters to huffman their representations
 void encode(char* fileContent, unsigned int contentSize) {
-    //char fileContent[200] = "milchzjtm"; // mississippi milchzjtm aggghhhhhhhhhmmmmmmmrrrrtttt yoyoyo what is up peoplowwwwls huh pewpew
-    //std::cout << sizeof(fileContent) / sizeof(*fileContent) << " " << sizeof(fileContent) << " " << sizeof(*fileContent) << std::endl;
-	 
     // get letter frequency dictionary (keys: assci-value of char, value: frequency)
     std::map<int, int> frequencyTable = getCharacterFrequencies(fileContent, contentSize);
 
@@ -440,19 +386,26 @@ void encode(char* fileContent, unsigned int contentSize) {
         std::cout << "\n----------------\n";
     }
 
+    // encode the entire file content to the canonical code as one bit sequence
     std::vector<bool> bitStream;
     for (int i=0; i<contentSize; i++) {
-        std::vector<bool> currentCode = canonicalHuffmanCodes[fileContent[i]];
-        bitStream.insert(bitStream.end(), currentCode.begin(), currentCode.end());
+        std::vector<bool> canonicalCode = canonicalHuffmanCodes[fileContent[i]];
+        bitStream.insert(bitStream.end(), canonicalCode.begin(), canonicalCode.end());
     }
-    std::string charSequence = bitStreamToChars(bitStream);
-    
-    infoPrint(charSequence);
 
-    //std::ofstream ofs("test.huf");
-    //ofs << charSequence;
-    //ofs.close();
-    //infoPrint("saved encoded file");
+    // split the bit stream into 8 bit chunks, convert them to chars and create the final encoded sequence
+    std::string encodedContent = bitStreamToChars(bitStream);
+    std::string header = createHeaderTable(canonicalHuffmanCodes);
+
+    encodedContent = header + encodedContent;
+
+    if (debug) { debugPrint(encodedContent); }
+
+    // save the encoded file content to a .huf file
+    std::ofstream ofs("test.huf");
+    ofs << encodedContent;
+    ofs.close();
+    infoPrint("saved encoded file");
     
 }
 
