@@ -18,6 +18,8 @@
 #define len(x) sizeof(x) / sizeof(*x)
 #define debug false
 
+typedef std::pair<int, std::vector<bool>> codePair;
+
 
 void traversal(std::shared_ptr<Node> &node, bool direction, std::vector<bool> currentCode, std::map<int, std::vector<bool>>& codeTable) {
     if (debug) {
@@ -141,7 +143,6 @@ void sortNodesByFrequency(std::vector<Node>& nodes, int leftNodeIdx, int rightNo
 
         sortNodesByFrequency(nodes, leftNodeIdx, pivotNodeIdx - 1);
         sortNodesByFrequency(nodes, pivotNodeIdx + 1, rightNodeIdx);
-
     }
     else {
         return;
@@ -210,9 +211,9 @@ std::map<int, int> getCharacterFrequencies(char *fileContent, unsigned int conte
 std::string bitStreamToChars(std::vector<bool>& bitStream) {
     std::string charSequence = "";
     std::bitset<8> currentByte;
-    int c = 0;
-    int idx = 0;
 
+    unsigned int c = 0;
+    unsigned int idx = 0;
     for (int i=0; i<bitStream.size(); i++) {
         bool currentBit = bitStream[i];
 
@@ -231,6 +232,111 @@ std::string bitStreamToChars(std::vector<bool>& bitStream) {
     }
 
     return charSequence;
+}
+
+
+/*std::string createHeaderTable(std::map<int, std::vector<bool>> huffmanCodeTable) {
+    std::string header = "";
+    std::bitset<8> currentByte;
+
+    for (auto &x : huffmanCodeTable) {
+        char currentChar = static_cast<char>(x.first);
+        
+        for (size_t i=0; i<x.second.size(); i++) {
+            if (x.second[i]) {
+                currentByte |= 1 << 7-i;
+            }
+        }
+
+        std::cout << currentChar << " " << currentByte << std::endl;
+
+        header += currentChar; header += ","; header += x.second.size(); header += ",";
+        header += static_cast<unsigned char>(currentByte.to_ulong()); header += "<#>";
+
+        currentByte = 0x0;
+    }
+    std::cout << "HEADER " << header << std::endl;
+
+    return header;
+}
+
+
+std::vector<std::vector<bool>> makeCanonical(std::vector<int>& codeLengths) {
+    std::vector<std::vector<bool>> newHuffmanCodes;
+
+    unsigned int priorCodeLength = codeLengths[0];
+    std::vector<bool> priorCanonicalCode(priorCodeLength);
+    newHuffmanCodes.push_back(priorCanonicalCode);
+
+    for (size_t i=1; i<codeLengths.size(); i++) {
+        
+        bool carry = 0;
+        unsigned int c = 0;
+        while (true) {
+
+            bool currentBit = priorCanonicalCode[priorCanonicalCode.size() - c - 1];
+            bool resultBit = currentBit ^ 1;
+
+            priorCanonicalCode[priorCanonicalCode.size() - c - 1] = resultBit;
+            if (currentBit != 1) {
+                newHuffmanCodes.push_back(priorCanonicalCode);
+                for (int j=0; j<priorCanonicalCode.size(); j++) {
+                    std::cout << priorCanonicalCode[j] << " ";
+                }std::cout << "\n";
+                break;
+            }
+            else {
+                c++;
+            }
+        }
+    }
+
+    for (int i=0; i<newHuffmanCodes.size(); i++) {
+        for (int j=0; j<newHuffmanCodes[i].size(); j++) {
+            std::cout << newHuffmanCodes[i][j] << " ";
+        }
+        std::cout << "\n-------------\n";
+    }
+
+    return newHuffmanCodes;
+}*/
+
+// std::vector<std::vector<bool>>
+std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCodes) {
+    std::map<int, std::vector<bool>> newHuffmanCodes;
+
+    unsigned int previousCodeLength = huffmanCodes[0].second.size();
+    newHuffmanCodes[huffmanCodes[0].first] = std::vector<bool>(2, 0);
+    //huffmanCodes[0] = std::pair<int, std::vector<bool>>(huffmanCodes[0].first, std::vector<bool>(2, 0));
+
+    // sadly the bitLength can't be dynamical (let's hope there is no code with lengh over 64)
+    const unsigned int bitLength = 64;
+    std::bitset<bitLength> previousCanonicalCode;
+
+    for (size_t i=1; i<huffmanCodes.size(); i++) {
+        unsigned int currentCodeLength = huffmanCodes[i].second.size();
+        
+        // add 1 to last code and shift it in order to keep its length
+        std::bitset<64> currentCanonicalCode(previousCanonicalCode.to_ulong() + 1);
+        currentCanonicalCode <<= (currentCodeLength - previousCodeLength);
+
+        // remove padding zeros
+        std::string currentCanonicalCodeString = currentCanonicalCode.to_string().erase(0, bitLength - currentCodeLength);
+        debugPrint(currentCanonicalCodeString.size());
+
+        std::vector<bool> currentCanonicalCodeVector;
+        for (auto b : currentCanonicalCodeString) {
+            currentCanonicalCodeVector.push_back(b == '1');
+        }
+
+        newHuffmanCodes[huffmanCodes[i].first] = currentCanonicalCodeVector;
+        //huffmanCodes[i] = std::pair<int, std::vector<bool>>(huffmanCodes[i].first, currentCanonicalCodeVector);
+
+        previousCodeLength = currentCodeLength;
+        previousCanonicalCode = currentCanonicalCode;
+    }
+
+    return newHuffmanCodes;
 }
 
 
@@ -287,7 +393,7 @@ void encode(char* fileContent, unsigned int contentSize) {
     traversal(node, 1, currentCode, huffmanCodes);
     infoPrint("gathered huffman codes");
 
-    if (1) {
+    if (debug) {
         debugPrint("generated huffman codes: ");
         for (auto &x : huffmanCodes) {
             std::cout << static_cast<char>(x.first) << " -> ";
@@ -297,18 +403,58 @@ void encode(char* fileContent, unsigned int contentSize) {
             std::cout << "\n----------------\n";
         }
     }
+    
+
+    std::vector<codePair> sortedHuffmanCodes;
+    std::copy(huffmanCodes.begin(), huffmanCodes.end(), std::back_inserter<std::vector<codePair>>(sortedHuffmanCodes));
+
+    std::sort(sortedHuffmanCodes.begin(), sortedHuffmanCodes.end(),
+            [](const codePair &l, const codePair &r)
+            {
+                if (l.second.size() != r.second.size()) {
+                    return l.second.size() < r.second.size();
+                }
+ 
+                return l.first < r.first;
+            });
+
+    for (int i=0; i<sortedHuffmanCodes.size(); i++) {
+        std::cout << sortedHuffmanCodes[i].first << " : ";
+        for (int j=0; j<sortedHuffmanCodes[i].second.size(); j++) {
+            std::cout << sortedHuffmanCodes[i].second[j] << " ";
+        }
+        std::cout << "\n";
+    }
+
+
+    //std::string header = createHeaderTable(huffmanCodes);
+    //std::vector<std::vector<bool>> a = makeCanonical(codeLengths);
+    std::map<int, std::vector<bool>> canonicalHuffmanCodes = makeCanonical(sortedHuffmanCodes);
+    
+    std::cout << "\n\n";
+    for (auto &x : canonicalHuffmanCodes) {
+        std::cout << static_cast<char>(x.first) << " -> ";
+        for (bool b : x.second) {
+            std::cout << b << "-";
+        }
+        std::cout << "\n----------------\n";
+    }
 
     std::vector<bool> bitStream;
     for (int i=0; i<contentSize; i++) {
-        std::vector<bool> currentCode = huffmanCodes[fileContent[i]];
+        std::vector<bool> currentCode = canonicalHuffmanCodes[fileContent[i]];
         bitStream.insert(bitStream.end(), currentCode.begin(), currentCode.end());
     }
     std::string charSequence = bitStreamToChars(bitStream);
-    infoPrint("encoded entire file content");
+    
+    infoPrint(charSequence);
 
-    std::ofstream ofs("test.huf");
-    ofs << charSequence;
-    ofs.close();
-    infoPrint("saved encoded file");
-
+    //std::ofstream ofs("test.huf");
+    //ofs << charSequence;
+    //ofs.close();
+    //infoPrint("saved encoded file");
+    
 }
+
+
+
