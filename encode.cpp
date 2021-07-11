@@ -208,7 +208,7 @@ std::map<int, int> getCharacterFrequencies(char *fileContent, unsigned int conte
 
 
 // splits the bit (/bool) stream into packs of 8 (= 1 byte), pads with zeros and stores them as chars
-std::string bitStreamToChars(std::vector<bool>& bitStream) {
+std::string bitStreamToString(std::vector<bool>& bitStream) {
     std::string charSequence = "";
     std::bitset<8> currentByte;
 
@@ -235,17 +235,46 @@ std::string bitStreamToChars(std::vector<bool>& bitStream) {
 }
 
 
-std::string createHeaderTable(std::map<int, std::vector<bool>>& huffmanCodeTable) {
+// sort huffman codes according to the code length
+std::vector<codePair> sortCodesByLength(std::map<int, std::vector<bool>>& huffmanCodeTable) {
+    std::vector<codePair> sortedHuffmanCodes;
+    std::copy(huffmanCodeTable.begin(), huffmanCodeTable.end(), std::back_inserter<std::vector<codePair>>(sortedHuffmanCodes));
+
+    std::sort(sortedHuffmanCodes.begin(), sortedHuffmanCodes.end(),
+        [](const codePair &l, const codePair &r)
+        {
+            if (l.second.size() != r.second.size()) {
+                return l.second.size() < r.second.size();
+            }
+
+            return l.first < r.first;
+        }
+    );
+
+    return sortedHuffmanCodes;
+}
+
+
+// create a header for the encoded file
+std::string createHeader(std::map<int, std::vector<bool>>& huffmanCodeTable) {
+    /*
+        format (ordered by code-length):
+        <code-length><character><code-length><character>...##
+    */
+
+    // map didn't perserve the order, therefore sort again according to the code length
+    std::vector<codePair> sortedHuffmanCodes = sortCodesByLength(huffmanCodeTable);
+
     std::string header = "";
-    for (auto &x : huffmanCodeTable) {
-        header += std::to_string(x.second.size()) + static_cast<char>(x.first);
+    for (codePair p : sortedHuffmanCodes) {
+        header += std::to_string(p.second.size()) + static_cast<char>(p.first);
     }
 
     return header + "##";
 }
 
 
-// std::vector<std::vector<bool>>
+// convert the generated huffman codes to canonical huffman codes
 std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCodes) {
     /* 
         algorithm:
@@ -272,7 +301,6 @@ std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCod
 
         // remove padding zeros
         std::string currentCanonicalCodeString = currentCanonicalCode.to_string().erase(0, bitLength - currentCodeLength);
-        debugPrint(currentCanonicalCodeString.size());
 
         std::vector<bool> currentCanonicalCodeVector;
         for (auto b : currentCanonicalCodeString) {
@@ -292,6 +320,7 @@ std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCod
 // encode a set of characters to huffman their representations
 void encode(char* fileContent, unsigned int contentSize) {
     // get letter frequency dictionary (keys: assci-value of char, value: frequency)
+
     std::map<int, int> frequencyTable = getCharacterFrequencies(fileContent, contentSize);
 
     // initialize huffman code dictionary (keys: assci-value of char, value: list of 0-1 huffman representation)
@@ -318,7 +347,15 @@ void encode(char* fileContent, unsigned int contentSize) {
     }
 
     // sort leaf-node list by frequency (lower -> higher)
-    sortNodesByFrequency(nodes, 0, nodes.size() - 1);
+    std::sort(nodes.begin(), nodes.end(),
+        [](const Node &l, const Node &r)
+        {
+            if (l.frequency != r.frequency) {
+                return l.frequency < r.frequency;
+            }
+            return l.frequency < r.frequency;
+        });
+        
     infoPrint("sorted characters");
 
     // build huffman tree
@@ -350,40 +387,31 @@ void encode(char* fileContent, unsigned int contentSize) {
         }
     }
     
+    // sort huffman codes according to the code lengths
+    std::vector<codePair> sortedHuffmanCodes = sortCodesByLength(huffmanCodes);
 
-    std::vector<codePair> sortedHuffmanCodes;
-    std::copy(huffmanCodes.begin(), huffmanCodes.end(), std::back_inserter<std::vector<codePair>>(sortedHuffmanCodes));
-
-    std::sort(sortedHuffmanCodes.begin(), sortedHuffmanCodes.end(),
-            [](const codePair &l, const codePair &r)
-            {
-                if (l.second.size() != r.second.size()) {
-                    return l.second.size() < r.second.size();
-                }
- 
-                return l.first < r.first;
-            });
-
-    for (int i=0; i<sortedHuffmanCodes.size(); i++) {
-        std::cout << sortedHuffmanCodes[i].first << " : ";
-        for (int j=0; j<sortedHuffmanCodes[i].second.size(); j++) {
-            std::cout << sortedHuffmanCodes[i].second[j] << " ";
-        }
+    if (debug) {
+        for (int i=0; i<sortedHuffmanCodes.size(); i++) {
+            std::cout << sortedHuffmanCodes[i].first << " : ";
+            for (int j=0; j<sortedHuffmanCodes[i].second.size(); j++) {
+                std::cout << sortedHuffmanCodes[i].second[j] << " ";
+            }
         std::cout << "\n";
+        }
     }
 
-
-    //std::string header = createHeaderTable(huffmanCodes);
-    //std::vector<std::vector<bool>> a = makeCanonical(codeLengths);
+    // create canonical huffman codes
     std::map<int, std::vector<bool>> canonicalHuffmanCodes = makeCanonical(sortedHuffmanCodes);
-    
-    std::cout << "\n\n";
-    for (auto &x : canonicalHuffmanCodes) {
-        std::cout << static_cast<char>(x.first) << " -> ";
-        for (bool b : x.second) {
-            std::cout << b << "-";
+
+    if (debug) {
+        std::cout << "\n\n";
+        for (auto &x : canonicalHuffmanCodes) {
+            std::cout << static_cast<char>(x.first) << " -> ";
+            for (bool b : x.second) {
+                std::cout << b << "-";
+            }
+            std::cout << "\n----------------\n";
         }
-        std::cout << "\n----------------\n";
     }
 
     // encode the entire file content to the canonical code as one bit sequence
@@ -394,12 +422,12 @@ void encode(char* fileContent, unsigned int contentSize) {
     }
 
     // split the bit stream into 8 bit chunks, convert them to chars and create the final encoded sequence
-    std::string encodedContent = bitStreamToChars(bitStream);
-    std::string header = createHeaderTable(canonicalHuffmanCodes);
+    std::string encodedContent = bitStreamToString(bitStream);
+    infoPrint("created canonical huffman codes");
 
+    // create and add the header with the information for the decoder
+    std::string header = createHeader(canonicalHuffmanCodes);
     encodedContent = header + encodedContent;
-
-    if (debug) { debugPrint(encodedContent); }
 
     // save the encoded file content to a .huf file
     std::ofstream ofs("test.huf");
