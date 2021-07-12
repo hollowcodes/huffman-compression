@@ -13,36 +13,87 @@
 #define errorPrint(x) std::cout << "\n[ERROR] " << x << std::endl
 
 
+std::map<std::string, int> recreateCodes(std::vector<std::pair<int, int>>& codeLengths) {
+    std::map<std::string, int> canonicalCodes;
 
-std::string recoverContent(std::string& binaryEncodedContent, std::map<char, int>& codeLengthMap) {
+    unsigned int previousCodeLength = codeLengths[0].second;
+    canonicalCodes[std::string(previousCodeLength, '0')] = codeLengths[0].first;
+
+    const unsigned int bitLength = 32;
+    std::bitset<bitLength> previousCanonicalCode;
+    for (size_t i=1; i<codeLengths.size(); i++) {
+        unsigned int currentCodeLength = codeLengths[i].second;
+        
+        // add 1 to last code and shift/padd it in order to keep its length
+        std::bitset<bitLength> currentCanonicalCode(previousCanonicalCode.to_ulong() + 1ULL);
+        currentCanonicalCode <<= (currentCodeLength - previousCodeLength);
+
+        // remove padding zeros
+        std::string currentCanonicalCodeString = currentCanonicalCode.to_string().erase(0, bitLength - currentCodeLength);
+        canonicalCodes[currentCanonicalCodeString] = codeLengths[i].first;
+
+        previousCodeLength = currentCodeLength;
+        previousCanonicalCode = currentCanonicalCode;
+    }
+
+    return canonicalCodes;
+}
+
+
+std::string recoverContent(std::string& binaryStringEncodedContent, std::map<std::string, int>& canonicalCodes, unsigned int& zeroPadAmount) {
+    binaryStringEncodedContent.erase((binaryStringEncodedContent.size() - zeroPadAmount), (binaryStringEncodedContent.size() - 1));
+
     std::string decodedContent = "";
+    std::string currentCode = "";
+    for (char &b : binaryStringEncodedContent) {
+        currentCode += b;
+        if (canonicalCodes.find(currentCode) != canonicalCodes.end()) {
+            decodedContent += canonicalCodes[currentCode];
+            currentCode = "";
+        }
+    }
 
     return decodedContent;
 }
 
 
 void decode(char* fileContent, unsigned int contentSize) {
-    std::map<char, int> codeLengthMap;
+    // codeLengthMap: pair<int (ascii value of char), int <length of the code of char)>
+    std::vector<std::pair<int, int>> codeLengths;
 
-    std::string encodedSequenceBinary = "";
+    unsigned int zeroPadAmount = 127 - (int) fileContent[0] - '0';
+
+    std::string encodedBinarySequence = "";
     bool finishedHead = false;
-    for (size_t i=0; i<contentSize; i+0) {
+    for (size_t i=1; i<contentSize; i+=0) {
+
+        // finishedHead == true: fileContent[i] : code-length (as char -> ascii table) , fileContent[i+1]: according character
         if (!finishedHead) {
             if (fileContent[i] == '#' && fileContent[i+1] == '#') {
                 finishedHead = true;
             }
-            codeLengthMap[fileContent[i]] = fileContent[i+1];
+            else {
+                codeLengths.push_back(std::pair<int, int>(fileContent[i+1], (127 - (int) fileContent[i])));
+            }
             i += 2;
         }
         else {
-            encodedSequenceBinary += std::bitset<8>(fileContent[i]).to_string();
+            encodedBinarySequence += std::bitset<8>((int) fileContent[i]).to_string();
             i++;
         }
     }
 
-    //std::string encodedContent(fileContent);
+    std::map<std::string, int> canonicalCodes = recreateCodes(codeLengths);
+    for (auto&x : canonicalCodes) {
+        std::cout << static_cast<char>(x.second) << " -> " << x.first << std::endl;
+    }
 
-    debugPrint(encodedSequenceBinary);
+    std::string decodedContent = recoverContent(encodedBinarySequence, canonicalCodes, zeroPadAmount);
+    debugPrint(decodedContent);
+
+    std::ofstream ofs("new_test.txt");
+    ofs << decodedContent;
+    ofs.close();
 }
 
 

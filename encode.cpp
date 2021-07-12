@@ -225,6 +225,11 @@ std::string bitStreamToString(std::vector<bool>& bitStream) {
 
         if (c == 8 || i == bitStream.size() - 1) {
             charSequence += static_cast<unsigned char>(currentByte.to_ulong());
+
+            // to the end of the binary character sequence, add the amount of leftover zeros
+            if (i == bitStream.size() - 1) {
+                charSequence += std::to_string(8 - c);
+            }
             currentByte = 0x0;
             c = 0;
             idx += 1;
@@ -256,21 +261,23 @@ std::vector<codePair> sortCodesByLength(std::map<int, std::vector<bool>>& huffma
 
 
 // create a header for the encoded file
-std::string createHeader(std::map<int, std::vector<bool>>& huffmanCodeTable) {
+std::string createHeader(std::map<int, std::vector<bool>>& huffmanCodeTable, char& endZeroPadding) {
     /*
         format (ordered by code-length):
         <code-length><character><code-length><character>...##
     */
-
     // map didn't perserve the order, therefore sort again according to the code length
     std::vector<codePair> sortedHuffmanCodes = sortCodesByLength(huffmanCodeTable);
 
     std::string header = "";
+    header += static_cast<char>(127 - endZeroPadding);
     for (codePair p : sortedHuffmanCodes) {
-        header += std::to_string(p.second.size()) + static_cast<char>(p.first);
+        header += static_cast<char>(127 - p.second.size());
+        header += static_cast<char>(p.first);
     }
+    header += "##";
 
-    return header + "##";
+    return header;
 }
 
 
@@ -286,17 +293,17 @@ std::map<int, std::vector<bool>> makeCanonical(std::vector<codePair>& huffmanCod
     std::map<int, std::vector<bool>> newHuffmanCodes;
 
     unsigned int previousCodeLength = huffmanCodes[0].second.size();
-    newHuffmanCodes[huffmanCodes[0].first] = std::vector<bool>(2, 0);
+    newHuffmanCodes[huffmanCodes[0].first] = std::vector<bool>(previousCodeLength, 0);
 
     // sadly the bitLength can't be dynamical (let's hope there is no code with lengh over 64)
-    const unsigned int bitLength = 64;
+    const unsigned int bitLength = 32;
     std::bitset<bitLength> previousCanonicalCode;
 
     for (size_t i=1; i<huffmanCodes.size(); i++) {
         unsigned int currentCodeLength = huffmanCodes[i].second.size();
         
         // add 1 to last code and shift/padd it in order to keep its length
-        std::bitset<64> currentCanonicalCode(previousCanonicalCode.to_ulong() + 1);
+        std::bitset<bitLength> currentCanonicalCode(previousCanonicalCode.to_ulong() + 1);
         currentCanonicalCode <<= (currentCodeLength - previousCodeLength);
 
         // remove padding zeros
@@ -403,7 +410,7 @@ void encode(char* fileContent, unsigned int contentSize) {
     // create canonical huffman codes
     std::map<int, std::vector<bool>> canonicalHuffmanCodes = makeCanonical(sortedHuffmanCodes);
 
-    if (debug) {
+    if (1) {
         std::cout << "\n\n";
         for (auto &x : canonicalHuffmanCodes) {
             std::cout << static_cast<char>(x.first) << " -> ";
@@ -426,7 +433,9 @@ void encode(char* fileContent, unsigned int contentSize) {
     infoPrint("created canonical huffman codes");
 
     // create and add the header with the information for the decoder
-    std::string header = createHeader(canonicalHuffmanCodes);
+    char zeroPadAmount = encodedContent[encodedContent.size() - 1];
+    encodedContent.erase(encodedContent.size() - 1);
+    std::string header = createHeader(canonicalHuffmanCodes, zeroPadAmount);
     encodedContent = header + encodedContent;
 
     // save the encoded file content to a .huf file
