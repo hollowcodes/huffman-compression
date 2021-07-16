@@ -59,40 +59,54 @@ std::string recoverContent(std::string& binaryStringEncodedContent, std::map<std
 
 void decode(char* fileContent, unsigned int contentSize) {
     // codeLengthMap: pair<int (ascii value of char), int <length of the code of char)>
+
+    char headDelimiterAsciiVal = 127;
+
+    unsigned int zeroPadAmount = headDelimiterAsciiVal - 1 - (int) fileContent[0];
+
     std::vector<std::pair<int, int>> codeLengths;
-
-    unsigned int zeroPadAmount = 127 - (int) fileContent[0] - '0';
-
     std::string encodedBinarySequence = "";
     bool finishedHead = false;
-    for (size_t i=1; i<contentSize; i+=0) {
 
+    for (size_t i=1; i<contentSize; i+=0) {
         // finishedHead == true: fileContent[i] : code-length (as char -> ascii table) , fileContent[i+1]: according character
         if (!finishedHead) {
-            if (fileContent[i] == '#' && fileContent[i+1] == '#') {
+            // if there is 35 x # in the text Im screwd...
+            if ((int) fileContent[i] == headDelimiterAsciiVal) {
                 finishedHead = true;
+                i++;
             }
             else {
-                codeLengths.push_back(std::pair<int, int>(fileContent[i+1], (127 - (int) fileContent[i])));
+                //std::cout << "length: " << headDelimiterAsciiVal - 1 - (int) fileContent[i] << " , char: " << fileContent[i+1] << std::endl;
+                codeLengths.push_back(std::pair<int, int>(fileContent[i+1], (headDelimiterAsciiVal - 1 - (int) fileContent[i])));
+                i += 2;
             }
-            i += 2;
         }
         else {
+            //std::cout << std::bitset<8>((int) fileContent[i]).to_string() << " = " << static_cast<unsigned char>( std::bitset<8>((int) fileContent[i]).to_ulong() ) << std::endl;
+            //if (std::bitset<8>((int) fileContent[i]).to_string() == "00000000") { debugPrint("yo");}
             encodedBinarySequence += std::bitset<8>((int) fileContent[i]).to_string();
             i++;
         }
     }
+    infoPrint("recieved header information");
+
+    //for (std::pair<int, int> x : codeLengths) {
+    //    std::cout << static_cast<char>(x.first) << " -> " << (int) x.second << std::endl;
+    //}
 
     std::map<std::string, int> canonicalCodes = recreateCodes(codeLengths);
-    for (auto&x : canonicalCodes) {
-        std::cout << static_cast<char>(x.second) << " -> " << x.first << std::endl;
-    }
+    infoPrint("canonical codes recreated");
+    //for (auto&x : canonicalCodes) {
+    //    std::cout << static_cast<char>(x.second) << " -> " << x.first << std::endl;
+    //}
 
     std::string decodedContent = recoverContent(encodedBinarySequence, canonicalCodes, zeroPadAmount);
-    debugPrint(decodedContent);
+    infoPrint("compressed content recovered");
+    //debugPrint(decodedContent);
 
     std::ofstream ofs("new_test.txt");
-    ofs << decodedContent;
+    ofs.write(decodedContent.c_str(), decodedContent.size());
     ofs.close();
 }
 

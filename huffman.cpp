@@ -11,8 +11,10 @@
 #include "encode.cpp"
 #include "decode.cpp"
 
+
 #define ENCODE_MODE 1
 #define DECODE_MODE 0
+
 
 int main() {
     bool mode = 0;
@@ -24,17 +26,21 @@ int main() {
     else {
         fileName = "test.huf";
     }
-    
-    std::ifstream ifs(fileName);
-    std::string fileContent((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()) );
-
-    char fileContentBuffer[fileContent.size()];
-    strcpy(fileContentBuffer, fileContent.c_str());
 
     if (mode == ENCODE_MODE) {
+        std::ifstream ifs(fileName);
+        std::string fileContent((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+        char fileContentBuffer[fileContent.size()];
+        strcpy(fileContentBuffer, fileContent.c_str());
+
         encode(fileContentBuffer, fileContent.size());
     }
     else if (mode == DECODE_MODE) {
+        std::ifstream ifs(fileName, std::ios::binary | std::ios::in);
+        std::string fileContent((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+        char fileContentBuffer[fileContent.size()];
+        strcpy(fileContentBuffer, fileContent.c_str());
+
         decode(fileContentBuffer, fileContent.size());
     }
 }

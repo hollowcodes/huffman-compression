@@ -224,6 +224,7 @@ std::string bitStreamToString(std::vector<bool>& bitStream) {
         c++;
 
         if (c == 8 || i == bitStream.size() - 1) {
+            //std::cout << currentByte << " ";
             charSequence += static_cast<unsigned char>(currentByte.to_ulong());
 
             // to the end of the binary character sequence, add the amount of leftover zeros
@@ -235,6 +236,7 @@ std::string bitStreamToString(std::vector<bool>& bitStream) {
             idx += 1;
         }
     }
+    std::cout << "\n";
 
     return charSequence;
 }
@@ -261,21 +263,24 @@ std::vector<codePair> sortCodesByLength(std::map<int, std::vector<bool>>& huffma
 
 
 // create a header for the encoded file
-std::string createHeader(std::map<int, std::vector<bool>>& huffmanCodeTable, char& endZeroPadding) {
+std::string createHeader(std::map<int, std::vector<bool>>& huffmanCodeTable, unsigned int endZeroPadding) {
     /*
         format (ordered by code-length):
         <code-length><character><code-length><character>...##
     */
     // map didn't perserve the order, therefore sort again according to the code length
+
+    unsigned int headDelimiterAsciiVal = 127;
+
     std::vector<codePair> sortedHuffmanCodes = sortCodesByLength(huffmanCodeTable);
 
     std::string header = "";
-    header += static_cast<char>(127 - endZeroPadding);
+    header += static_cast<char>(headDelimiterAsciiVal - 1 - endZeroPadding);
     for (codePair p : sortedHuffmanCodes) {
-        header += static_cast<char>(127 - p.second.size());
+        header += static_cast<char>(headDelimiterAsciiVal - 1 - p.second.size());
         header += static_cast<char>(p.first);
     }
-    header += "##";
+    header += static_cast<char>(headDelimiterAsciiVal);
 
     return header;
 }
@@ -386,7 +391,7 @@ void encode(char* fileContent, unsigned int contentSize) {
     if (debug) {
         debugPrint("generated huffman codes: ");
         for (auto &x : huffmanCodes) {
-            std::cout << static_cast<char>(x.first) << " -> ";
+            std::cout << std::bitset<8>(x.first) << " -> ";
             for (bool b : x.second) {
                 std::cout << b << "-";
             }
@@ -428,22 +433,25 @@ void encode(char* fileContent, unsigned int contentSize) {
         bitStream.insert(bitStream.end(), canonicalCode.begin(), canonicalCode.end());
     }
 
+    //for (bool b : bitStream) {
+    //    std::cout << b;
+    //}
+
     // split the bit stream into 8 bit chunks, convert them to chars and create the final encoded sequence
     std::string encodedContent = bitStreamToString(bitStream);
     infoPrint("created canonical huffman codes");
 
     // create and add the header with the information for the decoder
-    char zeroPadAmount = encodedContent[encodedContent.size() - 1];
+    unsigned int zeroPadAmount = encodedContent[encodedContent.size() - 1] - '0';
     encodedContent.erase(encodedContent.size() - 1);
     std::string header = createHeader(canonicalHuffmanCodes, zeroPadAmount);
     encodedContent = header + encodedContent;
 
     // save the encoded file content to a .huf file
-    std::ofstream ofs("test.huf");
-    ofs << encodedContent;
+    std::ofstream ofs("test.huf", std::ios::binary | std::ios::out);
+    ofs.write(encodedContent.c_str(), encodedContent.size());
     ofs.close();
     infoPrint("saved encoded file");
-    
 }
 
 
